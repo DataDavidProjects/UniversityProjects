@@ -62,6 +62,7 @@ features = sp.audio_features(ids)
 df = pd.DataFrame(features)
 
 
+
 # Other metrics
 df["popularity"] = [ songs[i]["track"]["popularity"] for i in range(len(songs))]
 df['artist_ids'] = artists_ids
