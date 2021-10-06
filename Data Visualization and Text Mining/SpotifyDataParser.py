@@ -1,3 +1,4 @@
+import time
 import requests
 CLIENT_ID = "32b4285219474e48a926eb7892e0fd81"
 CLIENT_SECRET =  "f2ea9f18c9514186a25d943a3d19739d"
@@ -61,12 +62,22 @@ for i in range(len(songs)):
 features = sp.audio_features(ids)
 df = pd.DataFrame(features)
 
-
-
 # Other metrics
 df["popularity"] = [ songs[i]["track"]["popularity"] for i in range(len(songs))]
 df['artist_ids'] = artists_ids
 
-
 # save to csv
 df.to_csv("Data/CustomSpotify.csv", index=False)
+
+dftot = pd.read_csv("Data Visualization and Text Mining/Data/Spotify_Songs_Scrapped.csv")
+df = dftot.loc[dftot.country_code == 'it',:]
+
+ids = [ url.split('track/')[1] for url in df.song_url.values.tolist() ]
+main_audio_df = pd.DataFrame()
+lista_blocks = [i for i in range(0, df.shape[0])[::100]]
+for i in lista_blocks:
+        j = i + 100
+        df_block = pd.DataFrame(sp.audio_features(ids[i:j]))
+        main_audio_df = pd.concat([main_audio_df, df_block], 0,ignore_index=True)
+        time.sleep(0.9)
+        print(i,j)
