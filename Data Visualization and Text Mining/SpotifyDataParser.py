@@ -65,12 +65,10 @@ df = pd.DataFrame(features)
 # Other metrics
 df["popularity"] = [ songs[i]["track"]["popularity"] for i in range(len(songs))]
 df['artist_ids'] = artists_ids
-
 # save to csv
 df.to_csv("Data/CustomSpotify.csv", index=False)
 
 dftot = pd.read_csv("Data Visualization and Text Mining/Data/Spotify_Songs_Scrapped.csv")
-df = dftot.loc[dftot.country_code == 'it',:]
 
 ids = [ url.split('track/')[1] for url in df.song_url.values.tolist() ]
 main_audio_df = pd.DataFrame()
