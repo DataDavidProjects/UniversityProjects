@@ -18,69 +18,35 @@ headers = {
     'Authorization': 'Bearer {token}'.format(token=access_token)
 }
 
-from bs4 import BeautifulSoup
 import pandas as pd
-import requests
-from time import sleep
-from datetime import date, timedelta
+import spotipy
+sp = spotipy.Spotify()
+from spotipy.oauth2 import SpotifyClientCredentials
 
-# create empty arrays for data we're collecting
-dates = []
-url_list = []
-final = []
-
-# map site
-url = "https://spotifycharts.com/regional/it/daily/latest/"
-start_date = today = date.today()
-end_date = today = date.today()
-
-delta = end_date - start_date
-
-for i in range(delta.days + 1):
-    day = start_date + timedelta(days=i)
-    day_string = day.strftime("%Y-%m-%d")
-    dates.append(day_string)
+cid = CLIENT_ID # check up
+secret = CLIENT_SECRET  # check up
+client_credentials_manager = SpotifyClientCredentials(client_id=cid, client_secret=secret)
+sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
+sp.trace=False
 
 
-def add_url():
-    for date in dates:
-        c_string = url + date
-        url_list.append(c_string)
-
-time.sleep(4)
-add_url()
+df = pd.read_csv("Data/regional-us-daily-latest.csv",skiprows = 1)
 
 
-# function for going through each row in each url and finding relevant song info
 
-def song_scrape(x):
+urls = df["URL"].values.tolist()
+ids = [ i.split('track/')[1] for i in  urls ]
 
-    pg = x
-    for tr in songs.find("tbody").findAll("tr"):
-        artist = tr.find("td", {"class": "chart-table-track"}).find("span").text
-        artist = artist.replace("by ", "").strip()
+main_audio_df = pd.DataFrame()
+lista_blocks = [i for i in range(0, df.shape[0])[::100]]
+for i in lista_blocks:
+        j = i + 100
+        df_block = pd.DataFrame(sp.audio_features(ids[i:j]))
+        main_audio_df = pd.concat([main_audio_df, df_block], 0,ignore_index=True)
+        time.sleep(0.9)
+        print(i,j)
 
-        title = tr.find("td", {"class": "chart-table-track"}).find("strong").text
-
-        songid = tr.find("td", {"class": "chart-table-image"}).find("a").get("href")
-        songid = songid.split("track/")[1]
-
-        url_date = x.split("daily/")[1]
-
-        final.append([title, artist, songid, url_date])
+total_df = pd.concat([df, main_audio_df],1)
 
 
-# loop through urls to create array of all of our song info
-
-for u in url_list:
-    read_pg = requests.get(u)
-    sleep(5)
-    soup = BeautifulSoup(read_pg.text, "html.parser")
-    songs = soup.find("table", {"class": "chart-table"})
-    song_scrape(u)
-
-# convert to data frame with pandas for easier data manipulation
-
-final_df = pd.DataFrame(final, columns=["Title", "Artist", "Song ID", "Chart Date"])
-
-final_df.to_csv("Data/DayUS.csv", index=False)
+total_df.to_csv("Data/regional-us-daily-latest-audio.csv")

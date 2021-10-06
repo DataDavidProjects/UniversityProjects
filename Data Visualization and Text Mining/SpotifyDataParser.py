@@ -35,7 +35,6 @@ client_credentials_manager = SpotifyClientCredentials(client_id=cid, client_secr
 sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 sp.trace=False
 
-
 # Get tracks in playlist
 playlist = sp.user_playlist("Top 50 Global", "5FN6Ego7eLX6zHuCMovIR2")
 # get response of call
