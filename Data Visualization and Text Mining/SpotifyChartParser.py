@@ -30,21 +30,22 @@ sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 sp.trace=False
 
 
-df = pd.read_csv("Data/regional-us-daily-latest.csv",skiprows = 1)
+df = pd.read_csv("C:/Users/david/Desktop/UniversityProjects/Data Visualization and Text Mining/Data/regional-us-daily-latest-audio.csv")
 
-urls = df["URL"].values.tolist()
-ids = [ i.split('track/')[1] for i in  urls ]
+# urls = df["URL"].values.tolist()
+# ids = [ i.split('track/')[1] for i in  urls ]
+#
+# main_audio_df = pd.DataFrame()
+# lista_blocks = [i for i in range(0, df.shape[0])[::100]]
+# for i in lista_blocks:
+#         j = i + 100
+#         df_block = pd.DataFrame(sp.audio_features(ids[i:j]))
+#         main_audio_df = pd.concat([main_audio_df, df_block], 0,ignore_index=True)
+#         time.sleep(0.9)
+#         print(i,j)
+#
+# total_df = pd.concat([df, main_audio_df],1)
 
-main_audio_df = pd.DataFrame()
-lista_blocks = [i for i in range(0, df.shape[0])[::100]]
-for i in lista_blocks:
-        j = i + 100
-        df_block = pd.DataFrame(sp.audio_features(ids[i:j]))
-        main_audio_df = pd.concat([main_audio_df, df_block], 0,ignore_index=True)
-        time.sleep(0.9)
-        print(i,j)
 
-total_df = pd.concat([df, main_audio_df],1)
-total_df["id_country"] = ["USA" for i in range(len(total_df))]
 
-total_df.to_csv("Data/regional-us-daily-latest-audio.csv")
+df.to_csv("C:/Users/david/Desktop/UniversityProjects/Data Visualization and Text Mining/Data/regional-us-daily-latest-audio.csv",index=False)
