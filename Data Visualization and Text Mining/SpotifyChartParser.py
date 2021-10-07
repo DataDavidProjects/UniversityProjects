@@ -80,7 +80,7 @@ def top200_chart(region):
             print(f"No audio analysis for region: {region} at id : {id}")
             df_block = pd.DataFrame(np.zeros((1, 18)), columns=audio_columns)
         else:
-            df_block = pd.DataFrame(sp.audio_features(ids[1]))
+            df_block = pd.DataFrame(sp.audio_features(id))
         main_audio_df = pd.concat([main_audio_df, df_block], axis="rows", ignore_index=True)
         time.sleep(0.0001)
 
@@ -90,7 +90,6 @@ def top200_chart(region):
                      'energy', 'key', 'loudness', 'mode', 'speechiness', 'acousticness',
                      'instrumentalness', 'liveness', 'valence', 'tempo',
                      'duration_ms', 'time_signature']]
-
 
 region_list = ['global',
  'us',
