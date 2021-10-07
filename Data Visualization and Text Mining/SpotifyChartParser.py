@@ -415,7 +415,6 @@ nation_dict = dict({
  'ye': 'YEM',
  'zm': 'ZMB',
  'zw': 'ZWE'})
-
 id_dict = dict({
  'af': 4,
  'al': 8,
@@ -589,8 +588,8 @@ id_dict = dict({
  'ye': 887,
  'zm': 894,
  'zw': 716})
-
 inv_map_id = {v: k for k, v in id_dict.items()}
+
 
 # g = pd.read_csv("C:/Users/david/Desktop/UniversityProjects/Data Visualization and Text Mining/Data/top200_all.csv")
 # g = g.loc[g.region != "global"]
@@ -600,6 +599,7 @@ inv_map_id = {v: k for k, v in id_dict.items()}
 # means = g.groupby('id').mean()[['streams','danceability','energy','speechiness','time_signature','valence','duration_ms']]
 # means =means.reset_index()
 # means["region"] = means["id"].map(inv_map_id)
+# means["region"] = means["region"].str.upper()
 # means["id"] = means["id"].astype(int)
 # means.to_csv("C:/Users/david/Desktop/UniversityProjects/Data Visualization and Text Mining/Data/top200_means.csv",
 #                  index=False)
