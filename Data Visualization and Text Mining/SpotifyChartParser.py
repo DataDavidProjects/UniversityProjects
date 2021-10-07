@@ -162,7 +162,6 @@ region_list = ['global',
  'vn',
  'za']
 global_df = pd.concat( [ top200_chart(r)  for r in region_list ], axis = 0 )
-
 global_df.to_csv("C:/Users/david/Desktop/UniversityProjects/Data Visualization and Text Mining/Data/top200_all.csv",
                  index=False)
 
@@ -417,7 +416,6 @@ nation_dict = dict({
  'zm': 'ZMB',
  'zw': 'ZWE'})
 
-
 id_dict = dict({
  'af': 4,
  'al': 8,
@@ -592,9 +590,15 @@ id_dict = dict({
  'zm': 894,
  'zw': 716})
 
-#
+
+
 # g = pd.read_csv("C:/Users/david/Desktop/UniversityProjects/Data Visualization and Text Mining/Data/top200_all.csv")
 # g = g.loc[g.region != "global"]
-# g["id"] = g["region"].map(nation_dict) # or id_dict
+# g["id"] = g["region"].map(id_dict) # or id_dict
 # g.to_csv("C:/Users/david/Desktop/UniversityProjects/Data Visualization and Text Mining/Data/top200_Noglobal.csv",
+#                  index=False)
+# means = g.groupby('id').mean()[['streams','danceability','energy','speechiness','time_signature','valence','duration_ms']]
+# means =means.reset_index()
+# means["id"] = means["id"].astype(int)
+# means.to_csv("C:/Users/david/Desktop/UniversityProjects/Data Visualization and Text Mining/Data/top200_means.csv",
 #                  index=False)
