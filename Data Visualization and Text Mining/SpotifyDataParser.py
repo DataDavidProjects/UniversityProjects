@@ -1,9 +1,12 @@
 import time
 import requests
-CLIENT_ID = "32b4285219474e48a926eb7892e0fd81"
-CLIENT_SECRET =  "f2ea9f18c9514186a25d943a3d19739d"
-AUTH_URL = 'https://accounts.spotify.com/api/token'
 
+
+from Keys import *
+CLIENT_ID = spotify_client_id  # Watch keys file in local
+CLIENT_SECRET =  spotify_client_secret
+
+AUTH_URL = 'https://accounts.spotify.com/api/token'
 # POST
 auth_response = requests.post(AUTH_URL, {
     'grant_type': 'client_credentials',

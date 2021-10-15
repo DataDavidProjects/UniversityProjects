@@ -1,7 +1,10 @@
 import time
 import requests
-CLIENT_ID = "32b4285219474e48a926eb7892e0fd81"
-CLIENT_SECRET =  "f2ea9f18c9514186a25d943a3d19739d"
+from Keys import *
+
+
+CLIENT_ID = spotify_client_id
+CLIENT_SECRET =  spotify_client_secret
 AUTH_URL = 'https://accounts.spotify.com/api/token'
 
 # POST
@@ -161,14 +164,6 @@ region_list = ['global',
  'uy',
  'vn',
  'za']
-# Create Dataset
-
-def create_dataset(path_file_name = "C:/Users/david/Desktop/UniversityProjects/Data Visualization and Text Mining/Data/top200_all.csv"):
- global_df = pd.concat( [ top200_chart(r)  for r in region_list ], axis = 0 )
- global_df.to_csv(path_file_name,
-                 index=False)
- return global_df
-
 nation_dict = dict({
  'af': 'AFG',
  'al': 'ALB',
@@ -593,6 +588,16 @@ id_dict = dict({
  'zm': 894,
  'zw': 716})
 inv_map_id = {v: k for k, v in id_dict.items()}
+
+# Create Dataset
+
+def create_dataset(path_file_name = "C:/Users/david/Desktop/UniversityProjects/Data Visualization and Text Mining/Data/top200_all.csv"):
+ global_df = pd.concat( [ top200_chart(r)  for r in region_list ], axis = 0 )
+ global_df.to_csv(path_file_name,
+                 index=False)
+ return global_df
+
+
 
 
 
