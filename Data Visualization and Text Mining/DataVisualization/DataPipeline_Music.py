@@ -117,7 +117,7 @@ def get_lyrics(title, artist):
 
     return lyrics
 
-df = top200_chart("gb")
+df = top200_chart("it")
 
 df["lyrics"] = df[["title","artist"]].apply(lambda x:get_lyrics(title =x["title"],
                                                                 artist = x["artist"]),
