@@ -30,7 +30,7 @@ plt.plot(
 plt.plot(
     x.detach().numpy(),
     tc.cos(x).detach().numpy(),
-    color = 'darkred',label='Cos(x)',alpha = 0.8, linestyle = '--')
+    color = 'darkred',label='Analytical d[f(x)=sin(x)]/dx = cos(x)',alpha = 0.8, linestyle = '--')
 
 plt.title("Function comparison")
 plt.xlabel("X")
