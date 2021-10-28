@@ -1,39 +1,51 @@
-
 ############################### Lib ###############################
 import torch as tc
-import numpy
+import numpy as np
 import matplotlib.pyplot as plt
 ####################################################################
 
-####################################################################
-#Define X as a tensor of linear spaced elements
-x  = tc.linspace(0,21,20, requires_grad=True)
+# RVS
+x = tc.tensor([1, 2, 3, 4], dtype=tc.float32)
+# Weights
+w = tc.tensor(0. , requires_grad=True ,dtype=tc.float32)
+# True model
+noise = tc.normal(size=(100,1) , mean= 0  , std= 1 , dtype=tc.float32)
+y_true = 2 * x
 
-#Compute y as aggregate  of function sin(x) on tensor x
-y = tc.sum(tc.sin(x))
+# Forward propagation to get y_hat
+def forward(x):
+ return w*x
 
-#Backprop
-y.backward()
-x.grad
-####################################################################
+# Loss function
+def loss(y_true, y_hat):
+ return  ( (y_hat - y_true)**2 ).mean()
 
 
-# Proof that d[f(x)=sin(x)]/dx from backprop torch is equal to theoretical d[f(x)=sin(x)]/dx  = cos(x)
-####################################################################
-# Plotting x , dx
-plt.plot(
-    x.detach().numpy(),
-    x.grad.detach().numpy(),
-    label='Torch d[f(x)=sin(x)]/dx', linewidth = 3, linestyle = 'dashdot', color = 'navy'
-)
-#Plotting x , cosx  to prove cosx = d[f(x) = sin(x)]/dx
-plt.plot(
-    x.detach().numpy(),
-    tc.cos(x).detach().numpy(),
-    color = 'darkred',label='Analytical d[f(x)=sin(x)]/dx = cos(x)',alpha = 0.8, linestyle = '--',linewidth = 2)
+# Training
+learning_rate = 0.01
+n_iters = 50
+for epoch in range(n_iters):
+ # Get prediction
+ y_hat = forward(x)
+ # Calculate loss
+ L = loss(y_true, y_hat)
 
-plt.title("Function comparison")
-plt.xlabel("X")
-plt.legend(loc ='upper right')
-plt.show()
-####################################################################
+ # Backprop
+ L.backward()
+
+ #exclude from computational graph in pytorch
+ with tc.no_grad():
+  w -=  learning_rate * w.grad
+
+
+ # Zero grad to dont accumulate in torch
+ w.grad.zero_()
+
+ #verbose every multiple of 10
+ if epoch % 2 ==0:
+  print(f'Current Iteration: {epoch}, current weight: {w:.3f} , current loss: {L:.5f}')
+
+print('')
+print(f'Prediction after training: f(5) = {forward(5).item():.3f}')
+
+# We dont need to compute analytical expression for the gradient
