@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 #Define X as a tensor of linear spaced elements
 x  = tc.linspace(0,21,20, requires_grad=True)
 
-#Compute y as a function sin(x) of tensor x
+#Compute y as aggregate  of function sin(x) on tensor x
 y = tc.sum(tc.sin(x))
 
 #Backprop
@@ -30,7 +30,7 @@ plt.plot(
 plt.plot(
     x.detach().numpy(),
     tc.cos(x).detach().numpy(),
-    color = 'darkred',label='Analytical d[f(x)=sin(x)]/dx = cos(x)',alpha = 0.8, linestyle = '--')
+    color = 'darkred',label='Analytical d[f(x)=sin(x)]/dx = cos(x)',alpha = 0.8, linestyle = '--',linewidth = 2)
 
 plt.title("Function comparison")
 plt.xlabel("X")
