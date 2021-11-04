@@ -90,6 +90,10 @@ from torchvision import transforms
 import matplotlib.pyplot as plt
 
 #_________________________________ Definition of Autoencoder ________________________
+''' 
+The architecture of the autoencoder needs to be tuned.
+The problem is the dimension of the hidden layer is difficult to find.
+'''
 N = X_train.shape[0]
 features_vector = X_train.shape[1]
 class Autoencoder(nn.Module):
@@ -104,7 +108,8 @@ class Autoencoder(nn.Module):
             nn.ReLU(),
             nn.Linear(50, 30),
             nn.ReLU(),
-            nn.Linear(30, 10)
+            nn.Linear(30, 10),
+            nn.ReLU()
         )
 
         self.decoder = nn.Sequential(
@@ -116,7 +121,8 @@ class Autoencoder(nn.Module):
             nn.ReLU(),
             nn.Linear(80, 100),
             nn.ReLU(),
-            nn.Linear(100, features_vector)
+            nn.Linear(100, features_vector),
+            nn.ReLU()
         )
 
     def forward(self, x):
@@ -129,7 +135,7 @@ class Autoencoder(nn.Module):
 
 #___________________________ Init Model __________________________________________________
 num_epochs = 50
-minibatch_size = 2**5
+minibatch_size = 2**3
 learning_rate = 1e-3
 
 model = Autoencoder().double().cpu()
