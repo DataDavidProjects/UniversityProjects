@@ -2,7 +2,9 @@ import pandas as pd
 import numpy as np
 import networkx as nx
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import (confusion_matrix, precision_recall_curve, auc,
+                             roc_curve, recall_score, classification_report, f1_score,
+                             precision_recall_fscore_support)
 
 # Path
 root = 'C:/Users/david/Desktop/UniversityProjects/AdvancedProgrammingDeepLearning/DeepLearning/Data/'
@@ -47,7 +49,7 @@ df_class_feature_selected.head()
 ############## Approach ##########################
 """ 
 Option1: We can use a denoiser autoencoder to upsample denoiser and go for a more robust supervised learning
-Option2 : Unsupervised Learning on score 
+Option2 : Unsupervised Learning on score  ------ NOT VERY EFFECTIVE 
 Option3: Ensemble the 2 approches 
 """
 
@@ -60,11 +62,11 @@ df = df_class_feature_selected.copy()
 # Seperate features and labels
 X = df.drop(columns=['txId', 'class', 'Time step']) # drop class, text id and time step
 y = df[['class']]
-#Change label 2 is licit 1 illicit
+#Change label 2 is licit 1 illicit -> 0 lecit 1illecit
 y = y['class'].apply(lambda x: 0 if x == '2' else 1 )
 
 #________________________________________________________________________________________
-
+''' Option to scale data 0-1 to favorite linear auto encoder just like PCA'''
 
 # Shuffle data train test split
 X_train, X_test, y_train, y_test = train_test_split(X,
@@ -75,12 +77,16 @@ X_train, X_test, y_train, y_test = train_test_split(X,
 # Filter train to get only clean transactions
 df_train = pd.concat([X_train , y_train] , axis = 1)
 blacklist_index =  df_train.loc[ df_train['class'] == 1 , : ].index
+# select just clean
 df_clean_train = df_train.loc[set(df_train.index)-set(blacklist_index)]
 
 #Training data with just clean transactions
 X_train =  df_clean_train.drop('class',axis =1 )
 y_train = df_clean_train[['class']]
 
+# Append dropped frauds to test
+X_test = X_test.append(df_train.loc[blacklist_index].drop('class',axis = 1))
+y_test = y_test.append(df_train.loc[blacklist_index,'class'])
 #_______________________________Autoencoders________________________________________________
 import torch
 import torch.nn as nn
@@ -101,26 +107,13 @@ class Autoencoder(nn.Module):
         super().__init__()
         self.encoder = nn.Sequential(
             nn.Linear(features_vector, 100),
-            nn.ReLU(),
-            nn.Linear(100, 80),
-            nn.ReLU(),
-            nn.Linear(80, 50),
-            nn.ReLU(),
-            nn.Linear(50, 30),
-            nn.ReLU(),
-            nn.Linear(30, 10),
-            nn.ReLU()
+            # nn.ReLU(),
+            # nn.Linear(100, 80)
         )
 
         self.decoder = nn.Sequential(
-            nn.Linear(10, 30),
-            nn.ReLU(),
-            nn.Linear(30, 50),
-            nn.ReLU(),
-            nn.Linear(50, 80),
-            nn.ReLU(),
-            nn.Linear(80, 100),
-            nn.ReLU(),
+            # nn.Linear(80, 100),
+            #nn.ReLU(),
             nn.Linear(100, features_vector),
             nn.ReLU()
         )
@@ -132,9 +125,8 @@ class Autoencoder(nn.Module):
 #__________________________________________________________________________________________
 
 
-
 #___________________________ Init Model __________________________________________________
-num_epochs = 50
+num_epochs = 10
 minibatch_size = 2**3
 learning_rate = 1e-3
 
@@ -153,7 +145,7 @@ X_test_t = torch.from_numpy(X_test.values)
 y_test_t = torch.from_numpy(y_test.values)
 
 # Create iterators from batch and DataLoader
-train_loader = data_utils.DataLoader(X_train_t, batch_size=minibatch_size, shuffle=True)
+train_loader = data_utils.DataLoader(X_train_t, batch_size=minibatch_size, shuffle=False)
 test_loader = data_utils.DataLoader(X_test_t, batch_size=1, shuffle=False)
 #________________________________________________________________________________________
 
@@ -187,7 +179,6 @@ for epoch in range(num_epochs):
 
 # torch.save(model.state_dict(), './autoencoder_net.pth')
 
-
 #Evaluation
 #history['train_loss']
 plt.plot(range(num_epochs),history['train_loss'],'ro',linewidth=2.0)
@@ -213,13 +204,14 @@ with torch.no_grad():
         #print(loss)
         pred_losses['pred_loss'].append(loss)
         #pred_losses = model([y_test.size, y_test])
+
 reconstructionErrorDF = pd.DataFrame(pred_losses)
-reconstructionErrorDF['Class'] = y_test
+reconstructionErrorDF['Class'] = y_test.values
 
 #________________________________________ Observe Distribution of new lecit and new illecit_________________________________________
 fig = plt.figure()
 ax = fig.add_subplot(111)
-normal_error_df = reconstructionErrorDF[(reconstructionErrorDF['Class']== 0) & (reconstructionErrorDF['pred_loss'] < 10)]
+normal_error_df = reconstructionErrorDF[(reconstructionErrorDF['Class']== 0)]
 _ = ax.hist(normal_error_df.pred_loss.values, bins=10)
 ax.set_title('Lecit Reconstruction')
 plt.show()
@@ -231,8 +223,6 @@ _ = ax.hist(fraud_error_df.pred_loss.values, bins=10)
 ax.set_title('Illecit Reconstruction')
 plt.show()
 #________________________________________________________________________________________________________________________
-
-
 
 #_______________________________________ Use the threshoold of the reconstruction error to spot anomalies _______________
 groups = reconstructionErrorDF.groupby('Class')
@@ -248,3 +238,35 @@ plt.ylabel("Reconstruction error")
 plt.xlabel("Data point index")
 plt.show();
 #________________________________________________________________________________________________________________________
+
+
+#________________________________________________ Confusion matrix AE ___________________________________________________
+import  seaborn as sns
+y_pred = [1 if e > threshold else 0 for e in reconstructionErrorDF.pred_loss.values]
+conf_matrix = confusion_matrix(reconstructionErrorDF.Class, y_pred)
+plt.figure(figsize=(12, 12))
+sns.heatmap(conf_matrix, annot=True, fmt="d",
+            cmap=plt.cm.get_cmap('Blues'));
+plt.title("Confusion matrix")
+plt.ylabel('True class')
+plt.xlabel('Predicted class')
+plt.show()
+#________________________________________________________________________________________________________________________
+
+
+#__________________________________ Supervised Learning Standard _______________________________________________________
+from sklearn.ensemble import RandomForestClassifier
+X = df_class_feature_selected.drop(columns=['txId', 'class', 'Time step']) # drop class, text id and time step
+y = df_class_feature_selected[['class']]
+
+# in this case, class 2 corresponds to licit transactions, we chang this to 0 as our interest is the ilicit transactions
+y = y['class'].apply(lambda x: 0 if x == '2' else 1 )
+X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.25,random_state=15)
+
+model_RF = RandomForestClassifier().fit(X_train.values,y_train.values)
+y_preds = model_RF.predict(X_test.values)
+
+prec,rec,f1,num = precision_recall_fscore_support(y_test.values, y_preds)
+
+print("Random Forest Classifier")
+print("Precision:%.3f \nRecall:%.3f \nF1 Score:%.3f"%(prec[1],rec[1],f1[1]))
