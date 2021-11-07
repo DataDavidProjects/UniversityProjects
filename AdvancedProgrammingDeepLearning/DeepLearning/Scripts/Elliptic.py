@@ -255,18 +255,18 @@ plt.show()
 
 
 #__________________________________ Supervised Learning Standard _______________________________________________________
-from sklearn.ensemble import RandomForestClassifier
-X = df_class_feature_selected.drop(columns=['txId', 'class', 'Time step']) # drop class, text id and time step
-y = df_class_feature_selected[['class']]
-
-# in this case, class 2 corresponds to licit transactions, we chang this to 0 as our interest is the ilicit transactions
-y = y['class'].apply(lambda x: 0 if x == '2' else 1 )
-X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.25,random_state=15)
-
-model_RF = RandomForestClassifier().fit(X_train.values,y_train.values)
-y_preds = model_RF.predict(X_test.values)
-
-prec,rec,f1,num = precision_recall_fscore_support(y_test.values, y_preds)
-
-print("Random Forest Classifier")
-print("Precision:%.3f \nRecall:%.3f \nF1 Score:%.3f"%(prec[1],rec[1],f1[1]))
+# from sklearn.ensemble import RandomForestClassifier
+# X = df_class_feature_selected.drop(columns=['txId', 'class', 'Time step']) # drop class, text id and time step
+# y = df_class_feature_selected[['class']]
+#
+# # in this case, class 2 corresponds to licit transactions, we chang this to 0 as our interest is the ilicit transactions
+# y = y['class'].apply(lambda x: 0 if x == '2' else 1 )
+# X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.25,random_state=15)
+#
+# model_RF = RandomForestClassifier().fit(X_train.values,y_train.values)
+# y_preds = model_RF.predict(X_test.values)
+#
+# prec,rec,f1,num = precision_recall_fscore_support(y_test.values, y_preds)
+#
+# print("Random Forest Classifier")
+# print("Precision:%.3f \nRecall:%.3f \nF1 Score:%.3f"%(prec[1],rec[1],f1[1]))
