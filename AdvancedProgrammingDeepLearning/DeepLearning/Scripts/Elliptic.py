@@ -62,7 +62,7 @@ df = df_class_feature_selected.copy()
 # Seperate features and labels
 X = df.drop(columns=['txId', 'class', 'Time step']) # drop class, text id and time step
 y = df[['class']]
-#Change label 2 is licit 1 illicit -> 0 lecit 1illecit
+#Change label, 2 is licit 1 illicit -> 0 lecit 1illecit
 y = y['class'].apply(lambda x: 0 if x == '2' else 1 )
 
 #________________________________________________________________________________________
