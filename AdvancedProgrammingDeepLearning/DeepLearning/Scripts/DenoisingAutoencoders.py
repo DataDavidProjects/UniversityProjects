@@ -72,7 +72,7 @@ loss_fn = torch.nn.MSELoss()
 # Learning Rate
 lr= 0.001
 # Batch size
-minibatch_size = 2**4
+minibatch_size = 2**10
 # Dimension reduced
 encoded_space_dim = int(m*0.5)
 
