@@ -56,6 +56,7 @@ class Node:
     def setNext(self,newnext):
         self.next = newnext
 
+
 def checkParenthesis(parenthesis):
   s = Stack()
   for char in parenthesis:
