@@ -123,14 +123,26 @@ print(is_perfect(6))
 
 # init a dictionary:
 bag_dict = dict()
-def bag(element,counter):
-    try:
-        # increment value based on key
-        bag_dict[element] += counter
-    except:
-        bag_dict[element] = 0
-        bag_dict[element] += counter
-    return (element,bag_dict[element])
+def bag(bag_dict,element):
+    # if the element e is in the bag, increase its count in the collection
+    # otherwise this means e occurs 0 times in the bag, so set its count to 1
+    if element in bag_dict:
+        bag_dict[element] = bag_dict[element] + 1
+    else:
+        bag_dict[element] = 1
+
+def countAstarB(word):
+    word = word.lower() # we disregard the letter cases
+    c = 0
+    if len(word)>=3:
+        # the last character's position is len(word)-1, but the pattern
+        # we search for is 3 character long, so we shall include position
+        # len(word)-3
+        for pos in range(0, len(word)-2):
+            if word[pos] == "a" and word[pos+2] == "b":
+                c = c+1
+    return c
+
 
 # Permutation Matrix (n!,n) with (first element repetition)= n!/n
 def print_permute_list(x,i=0):
