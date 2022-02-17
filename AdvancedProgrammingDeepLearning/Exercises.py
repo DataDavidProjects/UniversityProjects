@@ -95,6 +95,18 @@ def swap(a,b):
     a,b = b,a
     return a,b
 
+# From total seconds to unit time
+
+def time_parser(input_sec):
+    h = 3600
+    m = 60
+    s = 1
+    for t,d in zip([h, m, s],['Hour','Minutes',"Seconds"]):
+        unit_time = input_sec // t
+        input_sec = input_sec % t
+        print(d,unit_time)
+
+
 
 def is_perfect(number):
     """
@@ -127,7 +139,7 @@ def bag(bag_dict,element):
     # if the element e is in the bag, increase its count in the collection
     # otherwise this means e occurs 0 times in the bag, so set its count to 1
     if element in bag_dict:
-        bag_dict[element] = bag_dict[element] + 1
+        bag_dict[element] += 1
     else:
         bag_dict[element] = 1
 
@@ -142,6 +154,18 @@ def countAstarB(word):
             if word[pos] == "a" and word[pos+2] == "b":
                 c = c+1
     return c
+
+
+def diagonalDifference(arr):
+    # Write your code here
+    principal = 0
+    secondary = 0
+    n = len(arr)
+    for i in range(0, n):
+        principal += arr[i][i]
+        secondary += arr[i][n - i - 1]
+
+    return abs(principal - secondary)
 
 
 # Permutation Matrix (n!,n) with (first element repetition)= n!/n
@@ -178,7 +202,6 @@ def permutation_matrix(x):
             # the matrix is a concatenation of itself with a list ( that contains the fixed and the swapped elements)
             matrix = matrix +[  [x[0]]+sub_x[j]   for j in range(k) ]
         return  matrix
-
 
 def sum_elements(l):
     assert type(l)== list
