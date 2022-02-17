@@ -156,6 +156,11 @@ def countAstarB(word):
     return c
 
 
+def staircase(n):
+    for i in range(1, n+1):
+         print(("#" * i).rjust(n))
+
+
 def diagonalDifference(arr):
     # Write your code here
     principal = 0
