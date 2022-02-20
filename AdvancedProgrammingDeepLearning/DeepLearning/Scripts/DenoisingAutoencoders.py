@@ -76,7 +76,6 @@ minibatch_size = 2**10
 # Dimension reduced
 encoded_space_dim = int(m*0.5)
 
-
 # Init Encoding and Deconding
 encoder = Encoder(encoded_space_dim=encoded_space_dim,input_dim=m)
 decoder = Decoder(encoded_space_dim=encoded_space_dim,input_dim=m)
