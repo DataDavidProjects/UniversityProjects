@@ -186,3 +186,19 @@ for epoch in range(0, 1001):
     losses.append(loss)
     if epoch % 100 == 0:
       print(f'Epoch: {epoch:03d}  Loss: {loss:.4f}')
+
+
+
+# Build the graph with Networkx
+G = nx.Graph()
+G.add_nodes_from(nodes)
+G.add_edges_from(edge_list)
+# Set Node Attibutes, Features as X , Labels as y
+nx.set_node_attributes(G,X,'X')
+nx.set_node_attributes(G,encoded_labels,'y')
+#obtain the adjacency matrix (A)
+A = nx.adjacency_matrix(G)
+print('Graph info: ', nx.info(G))
+#I cant use this method Process finished with exit code 137 (interrupted by signal 9: SIGKILL) memory issue
+#pyg_graph = from_networkx(G)
+#print('Data Converted in Pytorch Dataset object ')
