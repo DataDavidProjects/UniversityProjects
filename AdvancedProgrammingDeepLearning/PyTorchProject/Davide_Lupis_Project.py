@@ -19,7 +19,7 @@ from torch_geometric.transforms import NormalizeFeatures , AddSelfLoops
 
 
 ############################################ Data Collection ###################################
-dataset = Planetoid(root='data/Planetoid', name='Cora', transform=None ) #NormalizeFeatures()
+dataset = Planetoid(root='data/Planetoid', name='Cora', transform=NormalizeFeatures() ) #None
 print()
 print(f'Dataset: {dataset}:')
 print('======================')
@@ -96,6 +96,7 @@ print(f'Test Accuracy: {test_acc_mlp:.4f}')
 
 ################################## Graph Convolution ############################################
 model = GCN(hidden_channels=16)
+print(model)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
 criterion = torch.nn.CrossEntropyLoss()
 def train():
