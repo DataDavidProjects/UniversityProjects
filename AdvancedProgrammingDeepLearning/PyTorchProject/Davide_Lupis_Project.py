@@ -59,31 +59,50 @@ class GCN(torch.nn.Module):
         x = F.dropout(x, p=0.5, training=self.training)
         x = self.conv2(x, edge_index)
         return x
+
+# How do we choos e the dimension of the hidden layers ?
+# There is no way of knowing in advance, the main idea is that we should reduce the dimensions  and iterate
+# In literature they propose 16 as the best number of hidden layers
+n_hidden_dim = 16
 #################################################################################################
 
 
 
 
 ################################## MLP  ########################################################
-model = MLP(hidden_channels=16)
-criterion = torch.nn.CrossEntropyLoss()  # Define loss criterion.
+# Use MLP model as model
+model = MLP(hidden_channels=n_hidden_dim)
+# Define loss criterion.
+criterion = torch.nn.CrossEntropyLoss()
+# Define Optimizer
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)  # Define optimizer.
 print(model)
 def train():
+      # Train option
       model.train()
-      optimizer.zero_grad()  # Clear gradients.
-      out = model(data.x)  # Perform a single forward pass.
-      loss = criterion(out[data.train_mask], data.y[data.train_mask])  # Compute the loss solely based on the training nodes.
-      loss.backward()  # Derive gradients.
-      optimizer.step()  # Update parameters based on gradients.
+      # Clear gradients.
+      optimizer.zero_grad()
+      # Perform a single forward pass for the iteration i
+      out = model(data.x)
+      # Compute the loss solely based on the training nodes.
+      loss = criterion(out[data.train_mask], data.y[data.train_mask])
+      # Derive gradients.
+      loss.backward()
+      # Update parameters based on gradients.
+      optimizer.step()
       return loss
 
 def test():
+      # Model is in evaluation mode
       model.eval()
+      # Use model to make prediction
       out = model(data.x)
-      pred = out.argmax(dim=1)  # Use the class with highest probability.
-      test_correct = pred[data.test_mask] == data.y[data.test_mask]  # Check against ground-truth labels.
-      test_acc = int(test_correct.sum()) / int(data.test_mask.sum())  # Derive ratio of correct predictions.
+      # Use the class with highest probability since the output is a vector of softmax
+      pred = out.argmax(dim=1)
+      # Compute accuracy as the counter of  prediction vs ground-truth labels.
+      test_correct = pred[data.test_mask] == data.y[data.test_mask]
+      # Derive ratio of correct predictions. to get Accuracy
+      test_acc = int(test_correct.sum()) / int(data.test_mask.sum())
       return test_acc
 
 for epoch in range(1, 201):
@@ -95,25 +114,40 @@ print(f'Test Accuracy: {test_acc_mlp:.4f}')
 
 
 ################################## Graph Convolution ############################################
-model = GCN(hidden_channels=16)
+# Use Graph Convolutional Layers
+model = GCN(hidden_channels=n_hidden_dim)
 print(model)
+# Define Adam as optimizer
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
+# Define loss criterion.
 criterion = torch.nn.CrossEntropyLoss()
 def train():
+    # Training mode
     model.train()
-    optimizer.zero_grad()  # Clear gradients.
-    out = model(data.x, data.edge_index)  # Perform a single forward pass.
-    loss = criterion(out[data.train_mask],
-                     data.y[data.train_mask])  # Compute the loss solely based on the training nodes.
-    loss.backward()  # Derive gradients.
-    optimizer.step()  # Update parameters based on gradients.
-    return loss
-def test():
-    model.eval()
+    # Clear gradients.
+    optimizer.zero_grad()
+    # Perform a single forward pass for this iteration, note that edges are also an argument here
     out = model(data.x, data.edge_index)
-    pred = out.argmax(dim=1)  # Use the class with highest probability.
-    test_correct = pred[data.test_mask] == data.y[data.test_mask]  # Check against ground-truth labels.
-    test_acc = int(test_correct.sum()) / int(data.test_mask.sum())  # Derive ratio of correct predictions.
+    # Compute the loss solely based on the training nodes
+    loss = criterion(out[data.train_mask],
+                     data.y[data.train_mask])
+    # Derive gradients.
+    loss.backward()
+    # Update parameters based on gradients.
+    optimizer.step()
+    return loss
+
+def test():
+    # Evaluation mode
+    model.eval()
+    # Compute predictions as output of model
+    out = model(data.x, data.edge_index)
+    # Use the class with highest probability since the output is a vector of softmax
+    pred = out.argmax(dim=1)
+    # Compute accuracy as the counter of  prediction vs ground-truth labels.
+    test_correct = pred[data.test_mask] == data.y[data.test_mask]
+    # Derive ratio of correct predictions. to get Accuracy
+    test_acc = int(test_correct.sum()) / int(data.test_mask.sum())
     return test_acc
 
 for epoch in range(1, 101):
