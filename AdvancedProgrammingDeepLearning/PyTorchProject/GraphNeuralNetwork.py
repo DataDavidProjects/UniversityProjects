@@ -1,204 +1,95 @@
-"""
-The main idea is to demonstrate how Embedding a Graph Structures outperform
-traditional machine learning preprocessing.
-
-One graph structure which is
-
-* Static
-* Semisupervised Context
-* Definition of a Benchamrk using CORA
-*
-"""
-
+import dgl
+from dgl.data import DGLDataset
 import torch
-import torch.nn as nn
-import numpy as np
-import pandas as pd
-import networkx as nx
 import os
-from sklearn.utils import shuffle
-from sklearn.metrics import classification_report
+import pandas as pd
 
-all_data = []
-all_edges = []
+class SyntheticDataset(DGLDataset):
+    def __init__(self):
+        super().__init__(name='synthetic')
 
-path  = "C:/Users/david/Desktop/Graph_Convolutional_Networks_Node_Classification-master/Graph_Convolutional_Networks_Node_Classification-master/cora"
+    def process(self):
+        edges = pd.read_csv('./graph_edges.csv')
+        properties = pd.read_csv('./graph_properties.csv')
+        self.graphs = []
+        self.labels = []
 
-for root, dirs, files in os.walk(path):
-    for file in files:
-        if '.content' in file:
-            with open(os.path.join(root, file), 'r') as f:
-                all_data.extend(f.read().splitlines())
-        elif 'cites' in file:
-            with open(os.path.join(root, file), 'r') as f:
-                all_edges.extend(f.read().splitlines())
+        # Create a graph for each graph ID from the edges table.
+        # First process the properties table into two dictionaries with graph IDs as keys.
+        # The label and number of nodes are values.
+        label_dict = {}
+        num_nodes_dict = {}
+        for _, row in properties.iterrows():
+            label_dict[row['graph_id']] = row['label']
+            num_nodes_dict[row['graph_id']] = row['num_nodes']
 
-# Shuffle the data because the raw data is ordered based on the label
-random_state = 77
-all_data = shuffle(all_data, random_state=random_state)
+        # For the edges, first group the table by graph IDs.
+        edges_group = edges.groupby('graph_id')
 
+        # For each graph ID...
+        for graph_id in edges_group.groups:
+            # Find the edges as well as the number of nodes and its label.
+            edges_of_id = edges_group.get_group(graph_id)
+            src = edges_of_id['src'].to_numpy()
+            dst = edges_of_id['dst'].to_numpy()
+            num_nodes = num_nodes_dict[graph_id]
+            label = label_dict[graph_id]
 
-#parse the data
-labels = []
-nodes = []
-X = []
+            # Create a graph and add it to the list of graphs and labels.
+            g = dgl.graph((src, dst), num_nodes=num_nodes)
+            self.graphs.append(g)
+            self.labels.append(label)
 
-for i,data in enumerate(all_data):
-    elements = data.split('\t')
-    labels.append(elements[-1])
-    X.append(elements[1:-1])
-    nodes.append(elements[0])
+        # Convert the label list to tensor for saving.
+        self.labels = torch.LongTensor(self.labels)
 
-X = np.array(X,dtype=int)
-N = X.shape[0] #the number of nodes
-F = X.shape[1] #the size of node features
-print('X shape: ', X.shape)
+    def __getitem__(self, i):
+        return self.graphs[i], self.labels[i]
 
+    def __len__(self):
+        return len(self.graphs)
 
-#parse the edge
-edge_list=[]
-for edge in all_edges:
-    e = edge.split('\t')
-    edge_list.append((e[0],e[1]))
+dataset = SyntheticDataset()
+graph, label = dataset[0]
+print(graph, label)
 
-print('\nNumber of nodes (N): ', N)
-print('\nNumber of features (F) of each node: ', F)
-print('\nCategories: ', set(labels))
+import dgl
+import torch
+import torch.nn.functional as F
+from dgl.nn import GraphConv
 
-num_classes = len(set(labels))
-print('\nNumber of classes: ', num_classes)
+class GCN(torch.nn.Module):
+    def __init__(self, in_feats, h_feats, num_classes):
+        super(GCN, self).__init__()
+        self.conv1 = GraphConv(in_feats, h_feats)
+        self.conv2 = GraphConv(h_feats, num_classes)
 
-
-def limit_data(labels, limit=20, val_num=500, test_num=1000):
-    '''
-    Get the index of train, validation, and test data
-    '''
-    label_counter = dict((l, 0) for l in labels)
-    train_idx = []
-
-    for i in range(len(labels)):
-        label = labels[i]
-        if label_counter[label] < limit:
-            # add the example to the training data
-            train_idx.append(i)
-            label_counter[label] += 1
-
-        # exit the loop once we found 20 examples for each class
-        if all(count == limit for count in label_counter.values()):
-            break
-
-    # get the indices that do not go to traning data
-    rest_idx = [x for x in range(len(labels)) if x not in train_idx]
-    # get the first val_num
-    val_idx = rest_idx[:val_num]
-    test_idx = rest_idx[val_num:(val_num + test_num)]
-    return train_idx, val_idx, test_idx
-
-
-train_idx, val_idx, test_idx = limit_data(labels)
-# Pair labels with idx of train val test
-y_train =  [ i for n,i in enumerate(labels) if n in train_idx ]
-y_val   =  [ i for n,i in enumerate(labels) if n in val_idx ]
-y_test  =  [ i for n,i in enumerate(labels) if n in test_idx ]
-
-
-#set the mask
-train_mask = np.zeros((N,),dtype=bool)
-train_mask[train_idx] = True
-
-val_mask = np.zeros((N,),dtype=bool)
-val_mask[val_idx] = True
-
-test_mask = np.zeros((N,),dtype=bool)
-test_mask[test_idx] = True
-
-#Build the graph with Networkx
-G = nx.Graph()
-G.add_nodes_from(nodes)
-G.add_edges_from(edge_list)
-
-#obtain the adjacency matrix (A)
-A = nx.adjacency_matrix(G)
-print('Graph info: ', nx.info(G))
-
-
-# Cast as tensors
-train_mask,test_mask,val_mask = map(torch.tensor,[train_mask,test_mask, val_mask])
-A = torch.tensor(A.todense(), dtype=torch.float32)
-X = torch.tensor(X, dtype=torch.float32)
-# Graph Convolutional Layer
-class GCNConv(nn.Module):
-    def __init__(self, A, in_channels, out_channels):
-        super(GCNConv, self).__init__()
-        # Self loop on Adjacency Matrix
-        self.A_hat = A + torch.eye(A.size(0))
-        # Degree matrix
-        self.D = torch.diag(torch.sum(A, 1))
-        # Inverse square root  of Degree Matrix
-        self.D = self.D.inverse().sqrt()
-        # Adjacency Matrix with self loop and Symmetric Normalization D^-0.5A'D^-0.5
-        self.A_hat = torch.mm(torch.mm(self.D, self.A_hat), self.D)
-        # Random Initialization
-        self.W = nn.Parameter(torch.rand(in_channels, out_channels,dtype=torch.float32))
-
-    def forward(self, X):
-        out = torch.relu(torch.mm(torch.mm(self.A_hat, X), self.W))
-        return out
-
-
-class Graph_Net(torch.nn.Module):
-    def __init__(self, A, n_features, hidden_channels, num_classes):
-        super(Graph_Net, self).__init__()
-        self.conv1 = GCNConv(A, n_features, hidden_channels)
-        self.out = nn.Linear(hidden_channels, num_classes)
-
-    def forward(self, x, edge_index):
-        # First Message Passing Layer (Transformation)
-        x = self.conv1(x, edge_index)
-        # Output layer from logits to probabilities with Softmax
-        x = F.softmax(self.out(x), dim=1)
-        return x
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-hidden_channels = 16
-model = Graph_Net(A=A,n_features=F,
-                  hidden_channels=hidden_channels,
-                  num_classes= num_classes).to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
+    def forward(self, g, in_feat):
+        h = self.conv1(g, in_feat)
+        h = F.relu(h)
+        h = self.conv2(g, h)
+        g.ndata['h'] = h
+        return dgl.mean_nodes(g, 'h')
 
 
 
-criterion = nn.CrossEntropyLoss()
-def train():
-    model.train()
-    optimizer.zero_grad()
-    # Use all data as input, because all nodes have node features
-    out = model(X,edge_list)
-    # Only use nodes with labels available for loss calculation --> mask
-    loss = criterion(out[train_mask], y_train)
-    loss.backward()
-    optimizer.step()
-    return loss
+# Create the model with given dimensions
+model = GCN(dataset.dim_nfeats, 16, dataset.gclasses)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
-losses = []
-for epoch in range(0, 1001):
-    loss = train()
-    losses.append(loss)
-    if epoch % 100 == 0:
-      print(f'Epoch: {epoch:03d}  Loss: {loss:.4f}')
+for epoch in range(20):
+    for batched_graph, labels in train_dataloader:
+        pred = model(batched_graph, batched_graph.ndata['attr'].float())
+        loss = F.cross_entropy(pred, labels)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
+num_correct = 0
+num_tests = 0
+for batched_graph, labels in test_dataloader:
+    pred = model(batched_graph, batched_graph.ndata['attr'].float())
+    num_correct += (pred.argmax(1) == labels).sum().item()
+    num_tests += len(labels)
 
-
-# Build the graph with Networkx
-G = nx.Graph()
-G.add_nodes_from(nodes)
-G.add_edges_from(edge_list)
-# Set Node Attibutes, Features as X , Labels as y
-nx.set_node_attributes(G,X,'X')
-nx.set_node_attributes(G,encoded_labels,'y')
-#obtain the adjacency matrix (A)
-A = nx.adjacency_matrix(G)
-print('Graph info: ', nx.info(G))
-#I cant use this method Process finished with exit code 137 (interrupted by signal 9: SIGKILL) memory issue
-#pyg_graph = from_networkx(G)
-#print('Data Converted in Pytorch Dataset object ')
+print('Test accuracy:', num_correct / num_tests)
