@@ -216,3 +216,13 @@ def sum_elements(l):
         return l[0] + sum_elements(l[1:])
 
 sum_elements([1,2,3,4])
+
+
+def nth_of_sequence(n,a=1,b=2,c =3 ):
+    if n < 3:
+         return 1
+    for i in range(3,n+1):
+      # We "shift" a, b, and c to the next values of the sequence.
+        a, b, c = b, c, (3*a + 2*b + c)
+    return c
+nth_of_sequence(10,0,6,7)
