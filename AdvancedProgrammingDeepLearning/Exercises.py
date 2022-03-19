@@ -217,7 +217,7 @@ def sum_elements(l):
 
 sum_elements([1,2,3,4])
 
-
+# Fibonacci like series
 def nth_of_sequence(n,a=1,b=2,c=3):
     if n < 3:
          return 1
