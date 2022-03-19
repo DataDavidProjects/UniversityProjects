@@ -218,10 +218,32 @@ def sum_elements(l):
 sum_elements([1,2,3,4])
 
 
-def nth_of_sequence(n,a=1,b=2,c =3 ):
+def nth_of_sequence(n,a=1,b=2,c=3):
     if n < 3:
          return 1
     for i in range(3,n+1):
         a, b, c = b, c, (3*a + 2*b + c)
     return c
 nth_of_sequence(10,0,6,7)
+
+# flat list of list
+# [item for sublist in list_of_list for item in sublist]
+
+a = [
+    {"a":1,"b":3.1},
+    {"a":2,"c":4 },
+    {"c":2,"d":-5}
+]
+import pandas as pd
+def merge_dicts(list_of_dict,constraints = [int, float]):
+    df = pd.DataFrame(list_of_dict)
+    assert df.apply(lambda x: x.dtype).isin(constraints).all()
+    assert sum([ 0 if type(item) == str else 1 for sublist in list(df.columns) for item in sublist ]) ==0
+    return dict(df.max())
+merge_dicts(a)
+
+
+# flatten list of list
+def lista(): return list([1,2,3,4])
+matrix = [lista() for i in range(10)]
+elementi  = [ element for riga in matrix for element in riga]
