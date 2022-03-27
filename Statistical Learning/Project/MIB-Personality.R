@@ -6,7 +6,6 @@
 #install.packages("RColorBrewer")
 
 #install.packages("tm")
-
 library(tm)
 library(wordcloud)
 library(RColorBrewer)
@@ -17,7 +16,6 @@ library(dplyr)
 library(MASS)
 library(randomForest)
 library(ggplot2)
-
 ###########################################################
 
 
@@ -38,18 +36,13 @@ library(ggplot2)
 
 
 ##################### FULL PIPELINE  ###################
-setwd("../../..")
+setwd("C:/Users/david/Desktop")
 data.all <- read.csv("MBTI 500.csv",encoding = 'Latin-1')
 #data.all$posts<-str_replace_all(data.all$posts,"[^[:graph:]]", " ") 
 
 
-
 names(data.all)[2] <- "label"
 data.all$label <- as.factor(data.all$label)
-
-
-
-
 
 # WordCloud for each MIB type
 # for (type in  unique(data.all$label)  ){
@@ -89,7 +82,7 @@ data.all$label <- as.factor(data.all$label)
 # Helper Variables
 total.row <- dim(data.all)[1]
 total.min_class_row <- min(table(data.all$label))
-total.record_train_per_class <- 150
+total.record_train_per_class <- 500
 total.k_folds <- 10
 # Cross validation over k folds
 CV_score <- rep(0,total.k_folds)
@@ -115,7 +108,7 @@ for (i in 1:total.k_folds){
   # Downsize balanced test 
   test <- test %>% 
     group_by(label) %>% 
-    sample_n(50)
+    sample_n(50,replace = TRUE)
   # shuffle the dataframe by rows
   test <- test[sample(1:nrow(test)), ]
   #___________________________________________________
@@ -133,8 +126,7 @@ for (i in 1:total.k_folds){
   tfv <- TfIdfVectorizer$new(max_features = vocabulary,
                              remove_stopwords = TRUE)
   
-  
-  
+
   # Fit on train
   tfv$fit(train$posts)
   
@@ -152,7 +144,7 @@ for (i in 1:total.k_folds){
   var_explained <- pca$sdev^2 / sum(pca$sdev^2)
  
   # Dimensionality reduction to explain target variance 
-  target_variance_explained <- 0.9
+  target_variance_explained <- 0.98
   reduced_dim <-  which(cumsum(var_explained) > target_variance_explained)[1]
   #reduced_dim <- 300 totali 
    
