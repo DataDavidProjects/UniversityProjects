@@ -1,5 +1,4 @@
 #install.packages("tm")
-
 library(tm)
 library(superml)
 library(caret)
@@ -20,14 +19,14 @@ The four dimensions are:
 "
 
 ##################### Data #############################
-setwd("/Users/davide_lupis/Desktop")
-data <- read.csv("MBTI 500.csv")
+setwd("/Users/davide_lupis/Desktop/UniversityMaterial/R-statistical Learning/Project/")
+
 ########################################################
 
 
 #################### Data Preparation ##################
 
-
+data <- read.csv("MBTI 500.csv")
 # Definition of a subproblem
 data['Energy'] <- as.factor(ifelse(grepl("E",data$type),1,0))
 data['Information'] <- as.factor(ifelse(grepl("N",data$type),1,0))
@@ -56,8 +55,6 @@ CV_score <- data.frame( matrix(0, 5, 4) )
 labels <-  c('Energy','Information','Decision','Organize')
 colnames(CV_score) <- labels
 #label <- labels[1]
-# init plot
-par(mfrow=c(2,2))
 for (label in labels){
    # Crearte a dataframe
    df <- data
@@ -143,17 +140,170 @@ for (label in labels){
               file= paste(label,k,info,score_round,'.Rda',sep = '')
               )  
    }
-   
+   ###############################################
    CV_score[label]  <- vector_score
    
    # Plot
-   plot(CV_score[label], main = label, xlab = 'Kfolds',ylab = 'Balanced Accuracy')
-   lines(CV_score[label])
+   #plot(CV_score[label], main = label, xlab = 'Kfolds',ylab = 'Balanced Accuracy')
+   #lines(CV_score[label])
 }
 
 #######################################################
 # load("Model_Energy_1.Rda")
+#inizio 20:15 
+# fine 15:15
+#write.csv(CV_score,"CV_score.csv", row.names = FALSE,sep = ',')
+
+
+# init plot
+par(mfrow=c(2,2))
+for (label in labels){
+   # Plot
+   plot(CV_score[,label], 
+        ylim = c(0.70,0.95),
+        main = label, 
+        frame = FALSE, pch = 19,
+        lty = 1, lwd = 1,
+        xlab = 'Kfolds',ylab = 'Balanced Accuracy',col='blue')
+   lines(CV_score[label])
+   text( 1:5, CV_score[,label]+0.05 ,round(CV_score[,label],3) )
+}
+# for each test row
+# transorm tf_idf_vectorizer for each model 
+# random forest for each tf_idf_vectorizer
+# combine predictions
+# issue slow tfidf , sample the type ENTJ
 
 
 
+############## Final Model ######################
+library(tm)
+library(superml)
+library(caret)
+library(dplyr)
+library(MASS)
+library(randomForest)
+library(ggplot2)
 
+setwd("/Users/davide_lupis/Desktop/UniversityMaterial/R-statistical Learning/Project/")
+data <- read.csv("MBTI 500.csv")
+# Definition of a subproblem
+data['Energy'] <- as.factor(ifelse(grepl("E",data$type),1,0))
+data['Information'] <- as.factor(ifelse(grepl("N",data$type),1,0))
+data['Decision'] <- as.factor(ifelse(grepl("T",data$type),1,0))
+data['Organize'] <- as.factor(ifelse(grepl("J",data$type),1,0))
+data$type <- as.factor(data$type)
+labels <-  c('Energy','Information','Decision','Organize','type')
+
+# Create a Downsized dataset
+data_downsized <- data %>% 
+   group_by(type) %>% 
+   sample_n(1000,replace = TRUE)
+# Shuffle the dataframe by rows
+data_downsized <- data_downsized[sample(1:nrow(data_downsized)), ]
+
+# Create a TEST  dataset with unseen data 
+test_downsized <- data[!(as.character(data$posts) %in% as.character(data_downsized$posts)), ]
+# Create a Downsized dataset
+test_downsized <- data %>% 
+   group_by(type) %>% 
+   sample_n(100,replace = TRUE)
+# Shuffle the dataframe by rows
+test_downsized <- test_downsized[sample(1:nrow(test_downsized)), ]
+
+
+# TfIdfVectorizer text for training data 
+vocabulary <- 400
+tfv <- TfIdfVectorizer$new(max_features = vocabulary,remove_stopwords = TRUE)
+# Fit TFIDF on train
+tfv$fit(data_downsized$posts)
+
+#label <- 'type'
+# train model for each label
+for (label in labels){
+   # Crearte a dataframe
+   train <- data_downsized
+   # Set the label
+   train["label"] <- train[ ,label]
+   
+   # Transform train  using fitted TFIDF on Train Data
+   train_tf_features <- data.frame(
+      tfv$transform(train$posts)
+   )
+   # set label features
+   train_tf_features['label'] <-  train[,label] 
+   
+
+   # Fit Model on Train 
+   model <- randomForest(label ~., data = train_tf_features) 
+   
+   
+   
+   # TFIDF on Test using the previously fitted TFIDF
+   test_tf_features <- data.frame(
+      tfv$transform(test_downsized$posts)
+   )
+   
+   test_tf_features['label'] <-  test_downsized[,label]
+   
+
+   
+   # Predict
+   prediction_label <-  paste('predicted_',label,sep = '')
+   test_tf_features[ ,prediction_label ] <-  predict(model, newdata = test_tf_features)
+   
+   # Confusion Matrix and Scores
+   cm <- confusionMatrix(test_tf_features[ ,prediction_label ],
+                         test_tf_features[ ,'label'] 
+                         , mode = "everything")
+   
+   score <- cm$byClass['Balanced Accuracy']
+
+   #Save Model
+   info <- '_RandomForest_'
+   score_round <- round(score,2)*100
+   save(model, 
+        file= paste(label,info,score_round,'.Rda',sep = '')
+   )  
+   
+   # Collect predictions
+   test_downsized[,prediction_label] <- test_tf_features[ ,prediction_label ]
+}
+
+# check the complete profile
+test_downsized['predicted_letter_Energy'] <-  as.factor(ifelse(test_downsized$predicted_Energy== 1,'E','I'))
+test_downsized['predicted_letter_Information'] <-  as.factor(ifelse(test_downsized$predicted_Information== 1,'N','S'))
+test_downsized['predicted_letter_Decision'] <-  as.factor(ifelse(test_downsized$predicted_Decision ==1,'T','F'))
+test_downsized['predicted_letter_Organize'] <-  as.factor(ifelse( test_downsized$predicted_Organize ==1,'J','P'))
+test_downsized['predicted_type'] <-  predict(model, newdata = test_tf_features)
+
+# Combine subpredictions
+test_downsized['predicted_type_combined'] <- paste(test_downsized$predicted_letter_Energy,
+                                          test_downsized$predicted_letter_Information,
+                                          test_downsized$predicted_letter_Decision,
+                                          test_downsized$predicted_letter_Organize
+                                           ,sep = '')
+# FINAL ACCURACY 100 type each
+result_accuracy <-  sum(test_downsized['type'] == test_downsized['predicted_type'] )/dim(test_downsized)[1]
+result_accuracy
+
+# Summary on data
+table(data$type)
+table(data_downsized$type)
+table(test_downsized$type)
+
+# How and where do we make mistakes ? 
+sort(table(test_downsized['predicted_type'])-table(test_downsized['type']))
+
+
+test_downsized[,c('predicted_type','type')]
+
+
+#
+"Discussion. 
+Given that some types are rare, using the recursive model allow us to have balanced data and get almost equivalent performances 77 vs 80 
+proportion of data
+ENFJ  ENFP  ENTJ  ENTP  ESFJ  ESFP  ESTJ  ESTP  INFJ  INFP  INTJ  INTP  ISFJ  ISFP  ISTJ  ISTP 
+ 1534  6167  2955 11725   181   360   482  1986 14963 12134 22427 24961   650   875  1243  3424 
+ 
+"
