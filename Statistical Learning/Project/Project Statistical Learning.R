@@ -195,30 +195,45 @@ data['Organize'] <- as.factor(ifelse(grepl("J",data$type),1,0))
 data$type <- as.factor(data$type)
 labels <-  c('Energy','Information','Decision','Organize','type')
 
+table(data$type)
 # Create a Downsized dataset
 data_downsized <- data %>% 
    group_by(type) %>% 
-   sample_n(1000,replace = TRUE)
+   sample_n(150,replace = TRUE)
 # Shuffle the dataframe by rows
 data_downsized <- data_downsized[sample(1:nrow(data_downsized)), ]
-
+table(data_downsized$type)
 # Create a TEST  dataset with unseen data 
 test_downsized <- data[!(as.character(data$posts) %in% as.character(data_downsized$posts)), ]
 # Create a Downsized dataset
 test_downsized <- data %>% 
    group_by(type) %>% 
-   sample_n(100,replace = TRUE)
+   sample_n(50,replace = TRUE)
 # Shuffle the dataframe by rows
 test_downsized <- test_downsized[sample(1:nrow(test_downsized)), ]
-
-
+table(test_downsized$type)
+table(data_downsized$type)
 # TfIdfVectorizer text for training data 
 vocabulary <- 400
 tfv <- TfIdfVectorizer$new(max_features = vocabulary,remove_stopwords = TRUE)
 # Fit TFIDF on train
 tfv$fit(data_downsized$posts)
 
-#label <- 'type'
+
+# Transform train  using fitted TFIDF on Train Data
+train_tf_features <- data.frame(
+   tfv$transform(train$posts)
+)
+
+# TFIDF on Test using the previously fitted TFIDF
+test_tf_features <- data.frame(
+   tfv$transform(test_downsized$posts)
+)
+
+# Save TRAIN and TEST TFIDF 
+#write.csv(train_tf_features )
+
+#label <- 'Organize'
 # train model for each label
 for (label in labels){
    # Crearte a dataframe
@@ -226,26 +241,21 @@ for (label in labels){
    # Set the label
    train["label"] <- train[ ,label]
    
-   # Transform train  using fitted TFIDF on Train Data
-   train_tf_features <- data.frame(
-      tfv$transform(train$posts)
-   )
+  
    # set label features
    train_tf_features['label'] <-  train[,label] 
    
+   print(table(train_tf_features['label']))
 
    # Fit Model on Train 
    model <- randomForest(label ~., data = train_tf_features) 
    
+  
    
    
-   # TFIDF on Test using the previously fitted TFIDF
-   test_tf_features <- data.frame(
-      tfv$transform(test_downsized$posts)
-   )
    
    test_tf_features['label'] <-  test_downsized[,label]
-   
+   print(table(test_tf_features['label']))
 
    
    # Predict
@@ -284,20 +294,27 @@ test_downsized['predicted_type_combined'] <- paste(test_downsized$predicted_lett
                                           test_downsized$predicted_letter_Organize
                                            ,sep = '')
 # FINAL ACCURACY 100 type each
-result_accuracy <-  sum(test_downsized['type'] == test_downsized['predicted_type'] )/dim(test_downsized)[1]
+result_accuracy_type <-  sum(test_downsized['type'] == test_downsized['predicted_type'] )/dim(test_downsized)[1]
+test_downsized['predicted_correctly'] <- test_downsized['type'] == test_downsized['predicted_type']
+result_accuracy_type
+
+result_accuracy <-  sum(test_downsized['type'] == test_downsized['predicted_type_combined'] )/dim(test_downsized)[1]
 result_accuracy
 
+names(test_downsized)
 # Summary on data
 table(data$type)
 table(data_downsized$type)
 table(test_downsized$type)
 
 # How and where do we make mistakes ? 
+sort(table(test_downsized['predicted_type_combined'])-table(test_downsized['type']))
 sort(table(test_downsized['predicted_type'])-table(test_downsized['type']))
 
 
+table(test_downsized['predicted_type_combined'])-table(test_downsized['type'])
+table(test_downsized['predicted_type'])-table(test_downsized['type'])
 test_downsized[,c('predicted_type','type')]
-
 
 #
 "Discussion. 
@@ -306,4 +323,6 @@ proportion of data
 ENFJ  ENFP  ENTJ  ENTP  ESFJ  ESFP  ESTJ  ESTP  INFJ  INFP  INTJ  INTP  ISFJ  ISFP  ISTJ  ISTP 
  1534  6167  2955 11725   181   360   482  1986 14963 12134 22427 24961   650   875  1243  3424 
  
+ Update :
+ If i use the type as label i can just train on 150 , if i use the recursive model i have 2400 data for each label
 "
