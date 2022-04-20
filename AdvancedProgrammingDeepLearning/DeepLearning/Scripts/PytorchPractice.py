@@ -30,25 +30,25 @@ def loss(y_true, y_hat):
 learning_rate = 0.0001
 n_iters = 2500
 for epoch in range(n_iters):
- # Get prediction
- y_hat = forward(x)
- # Calculate loss
- L = loss(y_true, y_hat)
+  # Get prediction
+  y_hat = forward(x)
+  # Calculate loss
+  L = loss(y_true, y_hat)
 
- # Backprop
- L.backward()
+  # Backprop
+  L.backward()
 
- #exclude from computational graph in pytorch
- with tc.no_grad():
-  w -=  learning_rate * w.grad
+  #exclude from computational graph in pytorch
+  with tc.no_grad():
+   w -=  learning_rate * w.grad
 
 
- # Zero grad to dont accumulate in torch
- w.grad.zero_()
+  # Zero grad to dont accumulate in torch
+  w.grad.zero_()
 
- #verbose every multiple of 10
- if epoch % 10 ==0:
-  print(f'Current Iteration: {epoch}, current weight: {w:.3f} , current loss: {L:.5f}')
+  #verbose every multiple of 10
+  if epoch % 10 ==0:
+   print(f'Current Iteration: {epoch}, current weight: {w:.3f} , current loss: {L:.5f}')
 
 print('')
 print(f'Prediction after training: f(5) = {forward(5).item():.3f}')
