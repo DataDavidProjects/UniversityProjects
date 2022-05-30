@@ -4,13 +4,14 @@ import torch
 from torch.nn import Linear
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
+import  torch_geometric.data as data
 from torch_geometric.datasets import Planetoid
 from torch_geometric.transforms import NormalizeFeatures , AddSelfLoops
 #################################################################################################
 
 
 ############################################ Data Collection ###################################
-dataset = Planetoid(root='data/Planetoid', name='Cora', transform=NormalizeFeatures() ) #None
+dataset = Planetoid(root='data/Planetoid', name='Cora', transform=None ) #NormalizeFeatures
 print()
 print(f'Dataset: {dataset}:')
 print('======================')
@@ -148,3 +149,24 @@ for epoch in range(1, 101):
 test_acc_gcn = test()
 print(f'Test Accuracy with GCN: {test_acc_gcn:.4f}')
 #################################################################################################
+
+
+
+######################## How a GCN Layer looks inside ? ###############################
+#https://dsgiitr.com/blogs/gcn/
+import torch.nn as nn
+import torch.optim as optim
+class GCNConv(nn.Module):
+    def __init__(self, A, in_channels, out_channels):
+        super(GCNConv, self).__init__()
+        self.A_hat = A + torch.eye(A.size(0))
+        self.D = torch.diag(torch.sum(A, 1))
+        self.D = self.D.inverse().sqrt()
+        self.A_hat = torch.mm(torch.mm(self.D, self.A_hat), self.D)
+        self.W = nn.Parameter(torch.rand(in_channels, out_channels))
+
+    def forward(self, X):
+        out = torch.relu(torch.mm(torch.mm(self.A_hat, X), self.W))
+        return out
+
+########################################################################################
