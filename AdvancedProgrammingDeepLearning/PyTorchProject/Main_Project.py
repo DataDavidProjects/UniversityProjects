@@ -52,7 +52,7 @@ class GCN(torch.nn.Module):
         x = self.conv2(x, edge_index)
         return x
 
-# How do we choos e the dimension of the hidden layers ?
+# How do we choose the dimension of the hidden layers ?
 # There is no way of knowing in advance, the main idea is that we should reduce the dimensions  and iterate
 # In literature they propose 16 as the best number of hidden layers
 n_hidden_dim = 16
