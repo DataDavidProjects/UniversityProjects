@@ -1,0 +1,533 @@
+---
+title: "Predicting Myer-Briggs Personality from Tweets"
+author: "Davide Lupis,Federico Pozzoli"
+date: '2022-05-31'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+
+library(tm)
+library(superml)
+library(caret)
+library(dplyr)
+library(MASS)
+library(randomForest)
+library(ggplot2)
+library(stargazer)
+
+setwd("/Users/davide_lupis/Desktop/UniversityMaterial/R-statistical Learning/Project/")
+data <- read.csv("MBTI 500.csv")
+```
+
+
+
+![Description of Myer Briggs Indicators](/Users/davide_lupis/Desktop/UniversityMaterial/R-statistical Learning/Project/MyersBriggsTypes.png)
+```{r,echo=FALSE}
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+```
+
+## Business Understanding 
+The Myers Briggs Type Indicator (or MBTI for short) is a "personality type system" that divides everyone into 16 distinct personality types across 4 axis:
+
+   * Introversion (I) – Extroversion (E)
+   * Intuition (N) – Sensing (S)
+   * Thinking (T) – Feeling (F)
+   * Judging (J) – Perceiving (P)
+
+
+Even if our labels are not a solid ground truth we try to create a more feasible system in order to asses the type at large scale.
+
+The use of a model is justified since:
+
+* The test is quite long and a very small percantage of people have it done.
+* It is not feasible to make humans check every potential user.
+* Data Visualization techniques are not meaningful tools to make a separation between the classes.
+
+The Final Goal is to determine if a model is capable of predicting the Myers Briggs Type Indicator based on this text input.
+
+## Data Understanding
+
+The pre-processing steps are already given by the author of the dataset and include:
+
+* removing hyperlinks/special.
+* characters/stopwords.
+* converting emojis to text.
+* lemmatization, and stemming.
+
+The total amount of data is 106067.
+Each row is a fixed block of words and a label.
+
+There are not missing values and is possible to use a supervised learning approach with classification.
+
+The data is unbalanced and the minority class have just 181 samples.
+It is assumed that the final label is composed by independent pseudo label and that the classification problem can be seen as :
+
+* Multiclass Classification Problem with 16 labels
+* Recursive Binary Classification problem with 4 pseudo binary label.
+
+Note: More details  about the Recursive Binary Classification in the Modeling part.
+
+```{r, echo=FALSE}
+#dim(data)
+knitr::kable(rbind(table(data$type)) , caption = "Frequency of Myer Briggs Type for All the Dataset")
+```
+
+
+## Data Preparation 
+
+
+According to a supervised learning approach we use as target the type column and as feature the TFIDF vector from the text.
+We explain the following decision and how it will affect the model.
+
+A TFIDF vectorization is the process of transitioning from raw text into a set of numbers.
+It's a BAG OF WORDS approach that in its simplest form just create a feature for each word, defined by now as vocabulary, and it flags with a binary encoding
+whether or not the term is present in the document.
+Is a naive approach that can be expanded using weights, counting the number of times a term appears in the specific document and multiplying by a scaling factor that ensure
+high importance to words that are numerous inside the documents and less common among all documents.
+This final form is defined as Term Frequency Inverse Document Frequency and is the form used in this project.
+
+Pro:
+
+* It is fairly simple to understand and quite powerful
+* Is can give a base for model interpretation if needed
+
+Cons:
+
+* It's a Bag of words strategy, therefore the model will not catch the "big picture" of the sentence and struggle in sentences with negative edge cases
+* The size of the vector is a free parameter and it will affect the result, Hyperparameter tuning is required but skipped for computational reasons.
+
+
+
+### Recursive Approach
+
+Create pseudo label
+
+```{r,echo=FALSE}
+data['Energy'] <- as.factor(ifelse(grepl("E",data$type),1,0))
+data['Information'] <- as.factor(ifelse(grepl("N",data$type),1,0))
+data['Decision'] <- as.factor(ifelse(grepl("T",data$type),1,0))
+data['Organize'] <- as.factor(ifelse(grepl("J",data$type),1,0))
+data$type <- as.factor(data$type)
+labels <-  c('Energy','Information','Decision','Organize','type')
+```
+
+
+We separate from the very beginning 50 balanced observation per class, for a total of 800 rows that will be used as text.
+As for the first basic approach we collect a balanced training sample of 100 observation per class, for a total of 1600.
+
+
+```{r,echo=FALSE}
+n_train <- 100
+n_test  <- 50
+# Sample Data for training 
+# Create a  BALANCED TRAIN dataset with n amount per type: ENFJ INFJ ecc
+train_downsized <- data %>% 
+   group_by(type) %>% 
+   sample_n(n_train,replace = FALSE)
+# Shuffle the dataframe by rows
+train_downsized <- train_downsized[sample(1:nrow(train_downsized)), ]
+
+
+# Create a  TEST dataset with unseen data 
+test_downsized <- data[!(as.character(data$posts) %in% as.character(train_downsized$posts)), ]
+# Create a Downsized BALANCED dataset
+test_downsized <- data %>% 
+   group_by(type) %>% 
+   sample_n(n_test,replace = FALSE)
+# Shuffle the dataframe by rows
+test_downsized <- test_downsized[sample(1:nrow(test_downsized)), ]
+```
+
+
+```{r,echo=FALSE}
+knitr::kable(rbind(table(train_downsized$type)) , caption = "Frequency of Data for Training")
+knitr::kable(rbind(table(test_downsized$type)), caption = "Frequency of Data for Testing")
+```
+
+
+### TF IDF Vectorization
+
+An introduction of the method:
+A TFIDF vectorization is the process of transitioning from raw text into a set of numbers.
+It's a BAG OF WORDS approach that in its simplest form just create a feature for each word, defined by now as vocabulary, and it flags with a binary encoding
+whether or not the term is present in the document.
+It's a naive approach that can be expanded using weights, counting the number of times a term appears in the specific document and multiplying it by a scaling factor that ensure
+high importance to words that are numerous inside the documents and less importance to words that often present among all documents.
+Example : 
+Hate is an important word because is not used in all the context, therefore it will have an high score.
+"The" is a very common word, and will instead get a low score.
+This final form is defined as Term Frequency Inverse Document Frequency and is the form used in this project.
+
+
+#### Implications:
+
+* Variability Factor : Length of Vector / Vocabulary. It is assumed that an higher dimension will bring asymptotically more information to the model.
+
+* Instability Factor: If the length of the vector exceed the number of rows the model will be highly unstable.
+
+Note that we will fit the TFIDF model just on train data to avoid any data leakage and keep it for transforming the test set.
+After a few trials we decide that the best trade off is around 500.
+
+
+```{r,echo=FALSE}
+# TfIdfVectorizer text for training data 
+vocabulary <- 500
+# size of vector #Note that we don't want to exceed number of rows to get unstable predictions
+tfv <- TfIdfVectorizer$new(max_features = vocabulary,remove_stopwords = TRUE)
+# Fit TFIDF model on train
+tfv$fit(train_downsized$posts)
+```
+
+
+```{r,echo=FALSE}
+# Transform text in vector using the fitted tfidf model
+train_tf_features <- data.frame(
+   tfv$transform(train_downsized$posts)
+)
+```
+
+
+```{r,echo=FALSE}
+# Define vector + label 
+train_tf_features_target <- train_tf_features
+train_tf_features_target['type'] <- train_downsized$type
+
+# Which words are taken ? 
+#colnames(train_tf_features_target)[c(1:vocabulary)]
+
+# Save file csv 
+#write.csv(train_tf_features_target,'train_tf_features_target.csv',row.names  = FALSE)
+```
+
+
+
+
+```{r,echo=FALSE}
+# Transform test using the fitted tfidf model on train
+test_tf_features <- data.frame(
+   tfv$transform(test_downsized$posts)
+)
+
+# Define vector + label 
+test_tf_features_target <- test_tf_features
+test_tf_features_target['type'] <- test_downsized$type
+
+# Save file csv 
+#write.csv(test_tf_features_target,'test_tf_features_target.csv',row.names  = FALSE)
+```
+
+
+
+```{r, echo=FALSE}
+# loading data vectorized
+library(readr)
+# test_tf_features_target <- data.frame(read_csv("test_tf_features_target.csv"))
+# train_tf_features_target <- data.frame(read_csv("train_tf_features_target.csv"))
+# train_tf_features <- data.frame(train_tf_features_target[,c(1:300)])
+# test_tf_features <- data.frame(test_tf_features_target[,c(1:300)])
+# table(test_tf_features_target$type)
+
+```
+
+
+## Modeling 
+
+
+### Possible Goals and Metrics
+As for the success metric we assume that there is not any type more likely than the others, therefore accuracy in a balanced test will be the optimizing metric.
+
+Given that the best way to asses the MBI type is the test itself, even if we could measure it's predictive power we certainly will be below that number.
+We expect to perform better than random or an untrained human in terms of precision and way faster than an expert in terms of time to prediction.
+The real benefit of a model will mostly be that we can apply a first grasp of prediction at a very large scale.
+
+### Going at Random 
+
+```{r,echo=FALSE}
+cm_random <- confusionMatrix( test_downsized$type ,sample(data$type,50*16))
+```
+
+```{r,echo=FALSE}
+knitr::kable( data.frame(rbind(cm_random$overall ) ) ,type = 'latex',caption = "Random Model Performance on Test Data")
+```
+
+Given the random model baseline we discuss why we have decided to use *Decision Trees* as model.
+
+The major issue is that we do not directly work with the text, instead we try to create a feature space which partially represent the amount of total information inside the text.
+We cannot rely on models with many assumptions or too sensible to high dimensions.
+
+Decision Trees are good for multiclassification problems and often provide similar performance to other models.
+Trees tends to have low bias but high variance, therefore using a single Decision Tree for the prediction will lead to overfitting or in general high variance.
+
+*Random Forest is so the final choice for our model according to the following reasoning*.
+
+
+* Features sampling will better deal with the problem of high dimension
+* Bagging will decrease the variance of predictions
+* Trees are more explainable and the idea of voting will ensure more stability in the predictions
+
+We will use all default parameters for the algorithm since tuning the params will be computationally expensive.
+Generally we expect:
+
+* The variance of prediction to decrease with the increasing of estimators
+* The Bias to decrease with the increase of trees depth
+
+
+### Multiclassification Approach
+
+```{r,echo=FALSE}
+# Fit Model on Train 
+model <- randomForest(as.factor(type) ~., data = train_tf_features_target) 
+
+test_tf_features_target[,"predicted_type" ] <-  predict(model, newdata = test_tf_features)
+   
+# Confusion Matrix and Scores
+raw_accuracy <-  sum(test_tf_features_target$type == test_tf_features_target$predicted_type)/dim(test_tf_features_target)[1]
+cm_raw <- confusionMatrix(test_tf_features_target$type, test_tf_features_target$predicted_type)
+
+
+```
+
+
+```{r,results='asis', echo=FALSE }
+knitr::kable( data.frame(rbind(cm_raw$overall ) ) ,type = 'latex')
+knitr::kable(cm_raw$table, caption = "Confusion Matrix for Multiclass",type = 'latex')
+```
+
+
+```{r,echo=FALSE}
+#Save Model
+#info <- '_RandomForest_Raw'
+#score_round <- round(raw_accuracy,2)*100
+#save(model, 
+#   file= paste('type',info,score_round,'.Rda',sep = '')
+#   )  
+```
+
+### PCA Approach 
+
+Given the high dimensionality and the high chance of breaking many assumptions for several models, an option could be to use a dimensionality reduction technique.
+We have not by any means a hope for model improvement, since pca is an unsupervised technique and does not optimize for a better association between response and predictors.
+As rule of thumb we aim to capture 95% of the total variability and hope for an acceptable performance reduction.
+
+```{r,fig.align='center',echo=FALSE}
+pca <- prcomp(train_tf_features,scale. = TRUE)
+std_dev <- pca$sdev
+pr_var <- std_dev^2
+prop_varex <- pr_var/sum(pr_var)
+target_var_to_explain <- 0.95
+plot(cumsum(prop_varex), 
+     xlab = "Principal Component",
+     ylab = "Cumulative Proportion of Variance Explained",
+     type = "b",
+     main = paste('Components to explain at least 95% of variability:',
+                  which(cumsum(prop_varex) >= target_var_to_explain)[1])
+     ,font.main = 1,cex=1.5)
+abline(h=cumsum(prop_varex)[which(cumsum(prop_varex) >= target_var_to_explain)[1]],col='red',
+       v=which(cumsum(prop_varex) >= target_var_to_explain)[1])
+```
+
+
+```{r,echo=FALSE}
+#data.frame( predict(pca, newdata=scale(train_tf_features)) ) 
+```
+
+
+```{r,echo=FALSE}
+
+max_dimension <- which(cumsum(prop_varex) >= target_var_to_explain)[1]
+# Get PCA components for training , scaled data as input 
+train_tf_features_pcs <-  data.frame( predict(pca, newdata=scale(train_tf_features)) )[, c(1:max_dimension)]
+# Redefine features + target
+train_tf_features_target_pca <- train_tf_features_pcs
+train_tf_features_target_pca['type'] <-  train_downsized$type
+   
+# Fit Model on Train PCA
+model <- randomForest(type ~., data = train_tf_features_target_pca) 
+
+# Transform  test Features to PCA scaled data as input
+test_tf_features_pcs <-  data.frame(predict(pca, 
+                                            newdata=scale(test_tf_features)))[,c(1:max_dimension)]
+prediction_label <- 'predicted_type_pca'
+test_tf_features_target[ ,prediction_label ] <- predict(model, 
+                                                         newdata = test_tf_features_pcs)
+   
+# Confusion Matrix and Scores
+pca_accuracy <- sum(test_tf_features_target$type==test_tf_features_target$predicted_type_pca)/dim(test_tf_features_target)[1]
+cm_pca <- confusionMatrix(test_tf_features_target$type, 
+                          test_tf_features_target$predicted_type_pca)
+```
+
+
+```{r,results='asis', echo=FALSE }
+knitr::kable( data.frame(rbind(cm_pca$overall ) ) ,type = 'latex')
+knitr::kable(cm_pca$table, caption = "Confusion Matrix for Multiclass",type = 'latex')
+```
+
+
+
+### Prediction as Recursive Problem 
+
+This last approach is justified from the intuition that having a relative small size of training data, due to the minority class constraints, is affecting the potential performance.
+The question is:
+
+* *Can we improve the model performance if we assemble a predictions using sub models trained with much more data?*
+
+In order to use more data inside the model we can approach the prediction problem as a recursive problem.
+The idea is the following:
+
+* Create a Pseudo Label 
+* For each :
+   * Fit the model using the tfidf vector as features and the pseudo label as target
+   * Make a prediction for the pseudo label
+* Concatenate the subprediction to get a global prediction.
+
+Note: The pseudo Label is built using one of the complementary letter for each component.
+
+* Pseudo Label Energy = 1 in case the sample, regardless of the type, contains an E (extrovert component)
+
+* Pseudo Label Energy = 0 in case the sample, regardless of the type, contains an I (introvert component)
+
+
+```{r,echo=FALSE}
+# Sample data out of of test
+data_recursive <-  data[!(as.character(data$posts) %in% as.character(test_downsized$posts)), ]
+#table(data_recursive$type)
+```
+
+
+```{r,echo=FALSE}
+# Resolve sub problem for each label
+n_train <- 2000
+labels <-  c('Energy','Information','Decision','Organize')
+accuracy_rec <- rep(0,length(labels))
+for (label in labels){
+     if (label =='Energy'){
+      # Sample N train based on pseudo label
+      train_downsized <- data_recursive %>% 
+         group_by(Energy) %>% 
+         sample_n(n_train,replace = FALSE)
+     }
+   else if (label =='Information'){
+       # Sample N train based on pseudo label
+      train_downsized <- data_recursive %>% 
+         group_by(Information) %>% 
+         sample_n(n_train,replace = FALSE)
+   }
+    else if (label =='Decision'){
+       # Sample N train based on pseudo label
+      train_downsized <- data_recursive %>% 
+         group_by(Decision) %>% 
+         sample_n(n_train,replace = FALSE)
+    }
+    else if (label =='Organize'){
+       # Sample N train based on pseudo label
+      train_downsized <- data_recursive %>% 
+         group_by(Organize) %>% 
+         sample_n(n_train,replace = FALSE)
+    }
+   
+   # Shuffle the dataframe by rows
+   train_downsized <- train_downsized[sample(1:nrow(train_downsized)), ]
+   
+   # Transform text in vector using the fitted tfidf model
+   train_tf_features <- data.frame(tfv$transform(train_downsized$posts))
+   
+   # Define vector + label 
+   train_tf_features_target <- train_tf_features
+   train_tf_features_target[paste('pseudo_label_',label,sep = '')] <- train_downsized[,label]
+   
+   # Fit Model 
+   formula <-  as.formula( paste(paste('pseudo_label_',label,sep = ''),
+                                 paste(colnames(train_tf_features), collapse="+"),
+                                 sep = '~') ) 
+   
+   model <- randomForest( formula , data = train_tf_features_target) 
+   
+   # Make sub prediction on Test
+   test_tf_features_target[paste('predicted_',label,sep = '')] <- as.factor(predict(model, newdata = test_tf_features))
+   
+   # Create Pseudo Label for test
+   if (label =='Energy'){
+   test_tf_features_target[paste('pseudo_label_',label,sep = '')] <- as.factor(ifelse(grepl("E",test_tf_features_target$type),1,0))
+   }
+   else if (label =='Information') {
+       test_tf_features_target[paste('pseudo_label_',label,sep = '')] <- as.factor(ifelse(grepl("N",test_tf_features_target$type),1,0))
+   }
+   else if (label =='Decision') {
+       test_tf_features_target[paste('pseudo_label_',label,sep = '')] <- as.factor(ifelse(grepl("T",test_tf_features_target$type),1,0))
+   }
+    else if (label =='Organize') {
+       test_tf_features_target[paste('pseudo_label_',label,sep = '')] <- as.factor(ifelse(grepl("J",test_tf_features_target$type),1,0))
+   }
+   #print(label)
+   # Confusion Matrix and Scores
+  
+   pseudo_accuracy<-sum(test_tf_features_target[,paste('pseudo_label_',label,sep = '')]==test_tf_features_target[,paste('predicted_',label,sep = '')])/dim(test_tf_features_target)[1]
+   
+   accuracy_rec[match(label,labels)] <- pseudo_accuracy
+   
+   #cat('Total Avg Balanced Accuracy for Model ',label)
+   #print(pseudo_accuracy ) 
+   #print(' ')
+   }
+```
+
+```{r,echo=FALSE}
+knitr::kable(rbind(
+   table(train_tf_features_target[paste('pseudo_label_',label,sep = '')])
+   ),
+   caption = "Frequency of Data for each Binary Classification Training")
+```
+
+
+```{r,echo=FALSE}
+# check the complete profile
+test_tf_features_target['predicted_letter_Energy']<-as.factor(ifelse(test_tf_features_target$predicted_Energy== 1,'E','I'))
+test_tf_features_target['predicted_letter_Information']<-as.factor(ifelse(test_tf_features_target$predicted_Information== 1,'N','S'))
+test_tf_features_target['predicted_letter_Decision'] <- as.factor(ifelse(test_tf_features_target$predicted_Decision ==1,'T','F'))
+test_tf_features_target['predicted_letter_Organize'] <-as.factor(ifelse( test_tf_features_target$predicted_Organize ==1,'J','P'))
+
+test_tf_features_target['predicted_type_combined'] <- as.factor(paste(test_tf_features_target$predicted_letter_Energy,
+                                                            test_tf_features_target$predicted_letter_Information,
+                                                            test_tf_features_target$predicted_letter_Decision,
+                                                            test_tf_features_target$predicted_letter_Organize,
+                                                            sep = ''))
+# Calculate Accuracy using Recursive Models
+cm_combined <- confusionMatrix(test_tf_features_target[,'type'],test_tf_features_target[,'predicted_type_combined'])
+#table(test_tf_features_target['predicted_type_combined']) - table(test_tf_features_target['type'])
+```
+
+
+```{r,results='asis', echo=FALSE }
+knitr::kable( data.frame(rbind(cm_combined$overall) ) ,type = 'latex')
+knitr::kable(cm_combined$table, caption = "Confusion Matrix for Recursive Model",type = 'latex')
+```
+
+
+# Conclusions
+
+```{r,echo=FALSE}
+knitr::kable(data.frame(cbind(
+                 "Random" = cm_random$overall[1],
+                 "Multiclass" = cm_raw$overall[1],
+                 "Multiclass PCA" = cm_pca$overall[1],
+                 "Recursive Binary" = cm_combined$overall[1],
+                 'Energy' = accuracy_rec[1],
+                 'Information' = accuracy_rec[2],
+                 'Decision' = accuracy_rec[3],
+                 'Organize' = accuracy_rec[4]
+                 )
+           ) ) 
+```
+According to the results the best model is the **Multiclass model**.
+It must be mentioned that the recursive model was significantly more powerful in resolving the sub-task but the combining process was quite challenging and led to many errors.
+The PCA Multiclass model did not gave any advantage in terms of performance, but it is assumed that for higher dimension will help model speed.
+Acquiring more data did not therefore help the process, but it is assumed that a deeper data quality work using lexical richness filters and more elaborated embedding techniques might help the model to improve.
+In conclusion we are aligned with the majority of performance related to this topic and we confirm that in terms of business result is generally much more helpful to use a model rather that humans or data visualization techniques to resolve the problem of customer segmentation.
+
+
+
